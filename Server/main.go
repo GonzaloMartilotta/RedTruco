@@ -13,14 +13,27 @@ func main() {
 		fmt.Println("Error to listen:", err)
 		return
 	}
-	for {
-		conn, err := ln.Accept()
+	var players [2]net.Conn
+
+	for i := range players {
+		players[i], err = ln.Accept()
 		if err != nil {
 			fmt.Println("Error to connect:", err)
-			continue
+			return
 		}
-		go handleConnection(conn)
+
 	}
+	var hand []string
+	deck := newDeck()
+	shuffleDeck(deck)
+	//fmt.Println(deck) // Ver el mazo mezclado
+	for i := range players {
+		send(players[i], "INICIO 15")
+		hand, deck = dealCards(deck)
+		send(players[i], strings.Join(hand, " "))
+		go handleConnection(players[i])
+	}
+	select {}
 }
 
 func handleConnection(conn net.Conn) {
@@ -41,6 +54,10 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("Client: %s disconnected\n", client)
 	}
 
+}
+
+func send(player net.Conn, message string) {
+	fmt.Fprintln(player, message)
 }
 
 func handleMessage(conn net.Conn, message string) {
