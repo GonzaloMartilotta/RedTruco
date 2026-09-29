@@ -13,30 +13,29 @@ func main() {
 		fmt.Println("Error to listen:", err)
 		return
 	}
-	var players [2]net.Conn
-
-	for i := range players {
-		players[i], err = ln.Accept()
+	room := &game{} // Crea una nueva sala
+	for i := range room.players {
+		room.players[i].conn, err = ln.Accept()
 		if err != nil {
 			fmt.Println("Error to connect:", err)
 			return
 		}
 
 	}
-	var hand []string
 	deck := newDeck()
 	shuffleDeck(deck)
 	//fmt.Println(deck) // Ver el mazo mezclado
-	for i := range players {
-		send(players[i], "INICIO 15")
-		hand, deck = dealCards(deck)
-		send(players[i], strings.Join(hand, " "))
-		go handleConnection(players[i])
+	for i := range room.players {
+		send(room.players[i].conn, "INICIO 15")
+		room.players[i].hand, deck = dealCards(deck)
+		send(room.players[i].conn, "MANO "+strings.Join(room.players[i].hand, " "))
+		go handleConnection(room, i)
 	}
 	select {}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(room *game, player int) {
+	conn := room.players[player].conn
 	defer conn.Close()
 	client := conn.RemoteAddr()
 	fmt.Printf("Client: %s connected\n", client)
@@ -44,7 +43,7 @@ func handleConnection(conn net.Conn) {
 	scanner := bufio.NewScanner(conn)
 
 	for scanner.Scan() {
-		handleMessage(conn, scanner.Text())
+		handleMessage(room, player, scanner.Text())
 	}
 
 	err := scanner.Err()
@@ -60,19 +59,21 @@ func send(player net.Conn, message string) {
 	fmt.Fprintln(player, message)
 }
 
-func handleMessage(conn net.Conn, message string) {
+func handleMessage(room *game, player int, message string) {
+	conn := room.players[player].conn
+
 	command := strings.Fields(message)
 
 	if len(command) <= 0 {
-		fmt.Fprint(conn, "ERROR mensaje vacio\n")
+		send(conn, "ERROR mensaje vacio")
 		return
 	}
 
 	switch command[0] {
 	case "JUGAR", "TRUCO", "RETRUCO", "VALE4", "ENVIDO", "QUIERO", "NOQUIERO":
-		fmt.Fprint(conn, "OK\n")
+		send(conn, "OK")
 	default:
-		fmt.Fprint(conn, "ERROR comando desconocido\n")
+		send(conn, "ERROR comando desconocido")
 	}
 
 }
