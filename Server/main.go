@@ -26,11 +26,6 @@ func main() {
 
 		go handleJoin(conn, &rooms)
 	}
-
-	/*
-
-	 */
-
 }
 
 func handleJoin(conn net.Conn, rooms *[]*game) {

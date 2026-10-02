@@ -72,14 +72,13 @@ func handleHTTP(conn net.Conn, rooms *[]*game) {
 	switch req.method {
 	case "GET":
 		if req.path == "/salas" {
-			roomsMu.Lock()
+			roomsMu.RLock()
 			if len(*rooms) > 0 {
-				roomsMu.Unlock()
 				sendHTTP(conn, "200 OK", "Hay salas")
 			} else {
-				roomsMu.Unlock()
 				sendHTTP(conn, "200 OK", "No hay salas")
 			}
+			roomsMu.RUnlock()
 		} else {
 			sendHTTP(conn, "404 Not Found", "")
 		}
