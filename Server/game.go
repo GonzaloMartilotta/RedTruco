@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 )
+
+var roomsMu sync.RWMutex
 
 type game struct {
 	players [2]player
 	turn    int
+	mu      sync.Mutex
 }
 
 type player struct {
