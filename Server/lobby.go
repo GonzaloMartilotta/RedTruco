@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+type request struct {
+	method  string
+	path    string
+	version string
+	headers map[string]string
+}
+
 func runLobby() {
 	ln, err := net.Listen("tcp", ":8080") // Acepta todo lo que entre por el puerto 8080
 	if err != nil {
@@ -28,17 +35,31 @@ func runLobby() {
 func handleHTTP(conn net.Conn, rooms *[]*game) {
 	defer conn.Close()
 	scanner := bufio.NewScanner(conn)
+
 	scanner.Scan()
-	request := scanner.Text()
-	parts := strings.Fields(request)
+	requestLine := scanner.Text()
+	parts := strings.Fields(requestLine)
+
 	if len(parts) != 3 {
 		sendHTTP(conn, "400 Bad Request", "")
 		return
 	}
 
-	switch parts[0] {
+	req := request{method: parts[0], path: parts[1], version: parts[2], headers: make(map[string]string)}
+
+	for scanner.Scan() {
+		requestLine := scanner.Text()
+		if requestLine == "" {
+			break
+		}
+		headerParts := strings.SplitN(requestLine, ":", 2) // Separa en 2 partes los headers
+		key := strings.TrimSpace(headerParts[0])
+		value := strings.TrimSpace(headerParts[1])
+		req.headers[key] = value
+	}
+	switch req.method {
 	case "GET":
-		if parts[1] == "/salas" {
+		if req.path == "/salas" {
 			if len(*rooms) > 0 {
 				sendHTTP(conn, "200 OK", "Hay salas")
 			} else {
@@ -48,11 +69,15 @@ func handleHTTP(conn net.Conn, rooms *[]*game) {
 			sendHTTP(conn, "404 Not Found", "")
 		}
 	case "POST":
-		room := new(game)
-		*rooms = append(*rooms, room)
-		sendHTTP(conn, "201 Created", fmt.Sprintf("Room %d created", len(*rooms)-1))
+		if req.path == "/salas" {
+			room := new(game)
+			*rooms = append(*rooms, room)
+			sendHTTP(conn, "201 Created", fmt.Sprintf("Room %d created", len(*rooms)-1))
+		} else {
+			sendHTTP(conn, "404 Not Found", "")
+		}
 	default:
-		sendHTTP(conn, "405 Bad Request", "")
+		sendHTTP(conn, "405 Method Not Allowed", "")
 	}
 }
 
