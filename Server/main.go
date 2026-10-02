@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	go runLobby()
 	ln, err := net.Listen("tcp", ":9000") // Acepta todo lo que entre por el puerto 9000
 	if err != nil {
 		fmt.Println("Error to listen:", err)
@@ -20,14 +21,14 @@ func main() {
 			fmt.Println("Error to connect:", err)
 			return
 		}
-
 	}
 	deck := newDeck()
 	shuffleDeck(deck)
 	//fmt.Println(deck) // Ver el mazo mezclado
 	for i := range room.players {
 		send(room.players[i].conn, "INICIO 15")
-		room.players[i].hand, deck = dealCards(deck)
+		room.players[i].hand, deck = dealCards(deck) // Les asigna cartas a los jugadores
+		room.players[i].played = []bool{false, false, false}
 		send(room.players[i].conn, "MANO "+strings.Join(room.players[i].hand, " "))
 		go handleConnection(room, i)
 	}
@@ -52,7 +53,6 @@ func handleConnection(room *game, player int) {
 	} else {
 		fmt.Printf("Client: %s disconnected\n", client)
 	}
-
 }
 
 func send(player net.Conn, message string) {
@@ -70,10 +70,13 @@ func handleMessage(room *game, player int, message string) {
 	}
 
 	switch command[0] {
-	case "JUGAR", "TRUCO", "RETRUCO", "VALE4", "ENVIDO", "QUIERO", "NOQUIERO":
-		send(conn, "OK")
+	case "JUGAR":
+		if len(command) < 2 {
+			send(conn, "Seleccione una carta valida")
+			break
+		}
+		handlePlays(room, player, command[1])
 	default:
 		send(conn, "ERROR comando desconocido")
 	}
-
 }
